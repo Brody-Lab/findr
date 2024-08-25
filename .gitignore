@@ -1,0 +1,4 @@
+# ignore below files from git
+
+*-checkpoint*
+*.pyc
