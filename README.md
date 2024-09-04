@@ -29,7 +29,7 @@ $ nano run_findr_array.sh
 
 Make sure that every `tdkim` in this file is changed to `<YourNetID>`. What this shell script does is to identify all data files (stored in `.npz` format) in `datafolderpath` and run the `session_id`-th data file in `datafolderpath`. The first data file starts with `session_id=0`, not `session_id=1`. To get the data files in `datafolderpath="/scratch/gpfs/tdkim/findr/npx_luo/manuscript2023a/recordingsessions/2024_04_09"`, go to `mnt/cup/labs/brody/tdkim/manuscript2023a/recordingsessions/2024_04_09` and move the `.npz` files to any folder you create under `/scratch/gpfs/<YourNetID>/`. Make sure that the `datafolderpath`, `analysisfolderpath` and `session_id` are correctly specified. 
 
-Run `rnn_findr_array.sh` using
+Run `run_findr_array.sh` using
 ```
 $ sbatch run_findr_array.sh
 ```
