@@ -23,6 +23,9 @@ scipy==1.12.0
 The dependencies can also be found in `requirements.txt`.
 
 # Installation
+
+Typical install time is 10-15 minutes.
+
 ## Princeton Della
 Run the commands below to install flax on Della:
 
