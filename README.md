@@ -1,6 +1,27 @@
 # findr
 FINDR: Flow-field Inference from Neural Data using deep Recurrent networks
 
+# System Requirements
+
+The `findr` package is supported for macOS and Linux. The package has been tested on the following systems:
+- Red Hat Enterprise Linux 8.10 (Ootpa)
+
+# Python Dependencies
+
+This package depends on
+
+```
+absl_py==1.4.0
+flax==0.6.4
+jax==0.4.4
+ml_collections==0.1.1
+numpy==1.23.5
+optax==0.1.4
+scikit_learn==1.3.2
+scipy==1.12.0
+```
+The dependencies can also be found in `requirements.txt`.
+
 # Installation
 ## Princeton Della
 Run the commands below to install flax on Della:
