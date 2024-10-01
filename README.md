@@ -73,6 +73,9 @@ The data needs to be stored as an `.npz` file that contains the following keywor
 
 `times`: contains a 1-d array (# of trials) of the timestamp of onset of each trial.
 
+# Plotting vector fields
+`notebooks/plot_example_vector_fields.ipynb` demonstrates how to generate latent trajectories from FINDR and plot vector fields for the representative session in Figure 2 of Luo*, Kim*, et al., 2023.
+
 # References
 1. Kim, T.D., Luo, T.Z., Can, T., Krishnamurthy, K., Pillow, J.W., Brody, C.D. (2023). Flow-field inference from neural data using deep recurrent networks. bioRxiv.
 2. Luo, T.Z.\*, Kim, T.D.\*, Gupta D., Bondy, A.G., Kopec, C.D., Elliot, V.A., DePasquale, B., Brody, C.D. (2023). Transitions in dynamical regime and neural mode underlie perceptual decision-making. bioRxiv.
