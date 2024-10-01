@@ -24,7 +24,7 @@ The dependencies can also be found in `requirements.txt`.
 
 # Installation
 
-Typical install time is 10-15 minutes.
+Typical install time is 10-15 minutes. Below we provide an instruction for Princeton's computing cluster Della as an example, but the general procedure should be similar for other systems.
 
 ## Princeton Della
 Run the commands below to install flax on Della:
