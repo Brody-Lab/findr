@@ -15,7 +15,8 @@ from jax.scipy.special import gammaln
 from flax.core import freeze, unfreeze
 from flax import linen as nn
 from flax import serialization
-from flax.training import train_state, checkpoints
+from flax.training import train_state, orbax_utils
+import orbax.checkpoint as ocp
 from flax import traverse_util
 from flax import struct
 from sklearn.model_selection import KFold
@@ -38,19 +39,7 @@ def create_train_state(
   xs,
   ckptdir = None
 ):  
-  """
-    Creates an initial `TrainState`.
-
-    Args:
-      rng: jax.random.PRNGKey, random key.
-      config: ml_collections.ConfigDict, configuration parameters.
-      learning_rate_fn: function, learning rate schedule.
-      xs: dict, dataset.
-      ckptdir: str, path to the checkpoint directory.
-
-    Returns:
-      state: train_state.TrainState, the initial state of the model.
-  """
+  """Creates an initial `TrainState`."""
   key_1, key_2, key_3 = random.split(rng, 3)
   model = models.FINDR(
     alpha = config.alpha,
@@ -116,7 +105,7 @@ def apply_model(
 
   """Computes gradients and loss for a single batch."""
   def loss_fn(params): 
-    logrates, z, b, mu, mu_theta, mu_phi, std = state.apply_fn(
+    logrates, z, mu, mu_theta, mu_phi, std = state.apply_fn(
       {'params': params},
       batch['spikes'], 
       batch['externalinputs'], 
@@ -146,7 +135,7 @@ def apply_model(
     loss += sum(
       l2_loss(w, alpha=l2_coeff) if label==1 
       else l2_loss(w, alpha=1e-7)
-      for label, w in zip(jax.tree_leaves(ntrgru_mask), jax.tree_leaves(params))
+      for label, w in zip(jax.tree.leaves(ntrgru_mask), jax.tree.leaves(params))
     )
     return loss, (nll_loss, kld_loss, logrates)
   
@@ -172,25 +161,7 @@ def train_epoch(
   learning_rate_fn,
   rng: PRNGKey
 ):
-  """
-    Train for a single epoch.
-
-    Args:
-      state: train_state.TrainState, the current state of the model.
-      train_ds: dict, training dataset.
-      loss_weights: jnp.ndarray, loss weights.
-      config: ml_collections.ConfigDict, configuration parameters.
-      beta_counter: int, counter for the beta coefficient.
-      lossw_counter: int, counter for the loss weights.
-      learning_rate_fn: function, learning rate schedule.
-      rng: jax.random.PRNGKey, random key.
-    
-    Returns:
-      state: train_state.TrainState, the updated state of the model.
-      train_loss: float, training loss.
-      train_nll: float, training negative log-likelihood.
-      train_kld: float, training
-  """
+  """Train for a single epoch."""
   key_1, key_2 = random.split(rng, 2)
   train_ds_size = len(train_ds['externalinputs'])
   steps_per_epoch = train_ds_size // config.batch_size
@@ -241,16 +212,15 @@ def train_and_evaluate(
   config: ml_collections.ConfigDict,
   datapath: str,
   workdir: str,
-  randseedpath: str = None
+  randseedpath: str = None,
+  ckpt_save: bool = True
 ) -> train_state.TrainState:
-  """
-    Execute model training and evaluation loop.
-
-    Args:
-      config: Hyperparameter configuration for training and evaluation.
-      workdir: Directory where the checkpoints are saved in.
-    Returns:
-      The train state (which includes the `.params`).
+  """Execute model training and evaluation loop.
+  Args:
+    config: Hyperparameter configuration for training and evaluation.
+    workdir: Directory where the checkpoints are saved in.
+  Returns:
+    The train state (which includes the `.params`).
   """
   train_ds, val_ds, test_ds, ds, perms = get_datasets(
     datapath, 
@@ -269,6 +239,15 @@ def train_and_evaluate(
   learning_rate_fn = create_learning_rate_fn(config, steps_per_epoch)
   state = create_train_state(key_1, config, learning_rate_fn, test_ds)
   best_state = state
+
+  # initialize checkpointing
+  mgr_options = ocp.CheckpointManagerOptions(
+    create=True, max_to_keep=1)
+  ckpt_mgr = ocp.CheckpointManager(
+    FLAGS.workdir,
+    ocp.Checkpointer(ocp.PyTreeCheckpointHandler()), 
+    mgr_options
+  )
   
   # the epoch around which the coefficient to the KL divergence term reaches 0.99
   annealing_epochs = np.floor(np.log(0.01)/np.log(config.beta_inc_rate)).astype(int)
@@ -411,35 +390,14 @@ def train_and_evaluate(
       'perms': perms
     }
 
-    checkpoints.save_checkpoint(
-      ckpt_dir=FLAGS.workdir, 
-      target=ckpt, 
-      step=int(state.step), 
-      keep=1,
-      overwrite=True
-    )
+    if ckpt_save:
+      if (epoch % 100 == 0) or (epoch == config.num_epochs):
+        save_args = orbax_utils.save_args_from_target(ckpt)
+        ckpt_mgr.save(epoch, ckpt, save_kwargs={'save_args': save_args})
 
-  return best_state
+  return min(ckpt['losses']['val_losses'][(config.earlymiddle_epochs + annealing_epochs):])
 
 def get_datasets(datapath, workdir, randseedpath=None, k_cv=1, n_splits=5, baseline_fit=True):
-  """
-    Returns train, validation, and test datasets.
-
-    Args:
-      datapath: str, path to the data file.
-      workdir: str, path to the directory where the checkpoints are saved.
-      randseedpath: str, path to the random seed file.
-      k_cv: int, the cross-validation fold.
-      n_splits: int, the number of splits.
-      baseline_fit: bool, whether to fit the baseline or not.
-    
-    Returns:
-      train_ds: dict, training dataset.
-      val_ds: dict, validation dataset.
-      test_ds: dict, test dataset.
-      ds: dict, concatenated dataset.
-      concat_ds: jnp.ndarray, concatenated indices.
-  """
   if randseedpath:
     df = pd.read_csv(randseedpath)
     one_hot = np.array(
@@ -453,20 +411,6 @@ def get_datasets(datapath, workdir, randseedpath=None, k_cv=1, n_splits=5, basel
     random_seed = 17
   dt = BIN_WIDTH
   data = np.load(datapath)
-
-  # we need to check if the data has external inputs as 'externalinputs' or 'clicks'
-  try:
-    externalinputs = data['externalinputs']
-  except(KeyError):
-    externalinputs = data['clicks']
-
-  # we need to check if the data has has keyword 'choices' or not
-  try:
-    choices = data['choices']
-    haschoices = True
-  except(KeyError):
-    choices = 0
-    haschoices = False
   
   # we need to check if the data has keyword 'times'
   try:
@@ -492,12 +436,7 @@ def get_datasets(datapath, workdir, randseedpath=None, k_cv=1, n_splits=5, basel
 
   baselinepath = workdir.rsplit('/', 1)[0]
 
-  if os.path.exists(baselinepath + '/spGLM_baseline.npy'):
-    baselines = np.load(baselinepath + '/spGLM_baseline.npy')
-    baseline = baselines[:,:,:,k_cv-1]
-  elif os.path.exists(baselinepath + '/tzl_baseline.npy'):
-    baseline = np.load(baselinepath + '/tzl_baseline.npy')
-  elif os.path.exists(baselinepath + '/baseline.npy'):
+  if os.path.exists(baselinepath + '/baseline.npy'):
     baselines = np.load(baselinepath + '/baseline.npy')
     baseline = baselines[:,:,:,k_cv-1]
   else:
@@ -555,24 +494,21 @@ def get_datasets(datapath, workdir, randseedpath=None, k_cv=1, n_splits=5, basel
     'spikes': data['spikes'][train_indices[k_cv-1],:,:],
     'externalinputs': externalinputs[train_indices[k_cv-1],:,:], 
     'lengths':data['lengths'][train_indices[k_cv-1]], 
-    'baselineinputs': baseline[train_indices[k_cv-1],:,:],
-    'choices': data['choices'][train_indices[k_cv-1]] if haschoices else 0
+    'baselineinputs': baseline[train_indices[k_cv-1],:,:]
   }
   
   val_ds = {
     'spikes': data['spikes'][valid_indices[k_cv-1],:,:],
     'externalinputs': externalinputs[valid_indices[k_cv-1],:,:], 
     'lengths':data['lengths'][valid_indices[k_cv-1]], 
-    'baselineinputs': baseline[valid_indices[k_cv-1],:,:],
-    'choices': data['choices'][valid_indices[k_cv-1]] if haschoices else 0
+    'baselineinputs': baseline[valid_indices[k_cv-1],:,:]
   }
   
   test_ds = {
     'spikes': data['spikes'][test_indices[k_cv-1],:,:],
     'externalinputs': externalinputs[test_indices[k_cv-1],:,:], 
     'lengths':data['lengths'][test_indices[k_cv-1]], 
-    'baselineinputs': baseline[test_indices[k_cv-1],:,:],
-    'choices': data['choices'][test_indices[k_cv-1]] if haschoices else 0
+    'baselineinputs': baseline[test_indices[k_cv-1],:,:]
   }
   
   ds = {
@@ -603,14 +539,7 @@ def get_datasets(datapath, workdir, randseedpath=None, k_cv=1, n_splits=5, basel
           val_ds['baselineinputs'], 
           test_ds['baselineinputs']
         ], 0
-      ),
-    'choices': jnp.concatenate(
-        [
-          train_ds['choices'], 
-          val_ds['choices'], 
-          test_ds['choices']
-        ], 0
-      ) if haschoices else 0
+      )
   }
 
   concat_ds = jnp.concatenate(
@@ -639,7 +568,6 @@ def kl_divergence(
   lossw_inc_rate: float,
   counter: int
 ) -> float:
-  """Calculates KL divergence between two Gaussians."""
   cov = std ** 2
   m = jnp.square(mu_theta - mu_phi) / cov
   kld = jnp.sum(m, axis=-1)

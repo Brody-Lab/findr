@@ -36,7 +36,7 @@ def radial_basis_functions(D, N, begins_at_0=False, ends_at_0=False):
     Each of `D` radial basis functions are evaluated at `N` values.
     The basis functions are orthogonalized and constrained to have unit norm.
   
-    Args:
+    Parameters:
       D: (integer) number of basis functions
       N : (integer) number of values for which the basis functions are evaluated
       begins_at_0 : (bool, optional) whether the output of the basis functions are set to be 0 for the first element
@@ -80,7 +80,7 @@ def radial_basis_functions_v2(D, x, begins_at_0=False, ends_at_0=False):
     Each of `D` radial basis functions are evaluated at `N` values.
     The basis functions are orthogonalized and constrained to have unit norm.
   
-    Args:
+    Parameters:
       D: (integer) number of basis functions
       x : (real vector) input to the raised cosine function
       begins_at_0 : (bool, optional) whether the output of the basis functions are set to be 0 for the first element
@@ -134,19 +134,6 @@ def infer_baseline_across_trials(
   valid_indices,
   n_splits: int
 ) -> Array:
-  """
-    Infers the baseline firing rate across trials.
-
-    Args:
-      trial_start_times: (real vector) the start times of each trial
-      spikes_across_trials: (real tensor) the spikes across trials
-      train_indices: (list of lists) the indices of the training set
-      valid_indices: (list of lists) the indices of the validation set
-      n_splits: (integer) the number of splits
-
-    Returns:
-      baseline_across_trials: (real tensor) the inferred baseline firing rate
-  """
   baseline_across_trials = np.zeros((spikes_across_trials.shape + (n_splits,)))
   
   regs_set = [1e-1, 1e-2, 1e-3, 1e-4, 1e-5]
@@ -202,20 +189,6 @@ def infer_baseline(
   valid_indices,
   n_splits: int
 ):
-  """
-    Infers the baseline firing rate.
-
-    Args:
-      spikes: (real tensor) the spikes
-      lengths: (integer vector) the lengths of each trial
-      baseline_across_trials: (real tensor) the inferred baseline firing rate across trials
-      train_indices: (list of lists) the indices of the training set
-      valid_indices: (list of lists) the indices of the validation set
-      n_splits: (integer) the number of splits
-
-    Returns:
-      baseline: (real tensor) the inferred baseline firing rate
-  """
   dt = BIN_WIDTH
   regs_set = [1e-1, 1e-2, 1e-3, 1e-4, 1e-5]
   num_basis_set = [5, 6, 7, 8, 9, 10]
@@ -349,17 +322,7 @@ def infer_baseline(
   return baseline
 
 def generate_smoothed_spikes(spikes, lengths):
-  """
-    Smooths the spikes with a causal gaussian filter.
-
-    Args:
-      spikes: (real tensor) the spikes
-      lengths: (integer vector) the lengths of each trial
-    
-    Returns:
-      smoothed_spikes: (real tensor) the smoothed spikes
-  """
-
+  """Smooths the spikes with a causal gaussian filter."""
   smoothed_spikes = np.zeros_like(spikes).astype(np.float32)
   for trial in range(smoothed_spikes.shape[0]):
     for neuron in range(smoothed_spikes.shape[2]):
@@ -367,22 +330,7 @@ def generate_smoothed_spikes(spikes, lengths):
   return smoothed_spikes
 
 def generate_psths(spikes, lengths, pokedR):
-  """
-    Generates the PSTHs conditioned on left and right choices of the animal.
-
-    Args:
-      spikes: (real tensor) the spikes
-      lengths: (integer vector) the lengths of each trial
-      pokedR: (boolean vector) the choices of the animal
-    
-    Returns:
-      right_observed_psth: (real matrix) the observed PSTH for right choices
-      left_observed_psth: (real matrix) the observed PSTH for left choices
-      right_psth_ci_low: (real matrix) the lower bound of the confidence interval for right choices
-      right_psth_ci_high: (real matrix) the upper bound of the confidence interval for right choices
-      left_psth_ci_low: (real matrix) the lower bound of the confidence interval for left choices
-      left_psth_ci_high: (real matrix) the upper bound of the confidence interval for left choices
-  """
+  """Generates the PSTHs conditioned on left and right choices of the animal."""
   smoothed_spikes = generate_smoothed_spikes(spikes, lengths)
   mask_ = mask_sequences(np.ones_like(smoothed_spikes[:,:,0]), lengths)
   smoothed_spikes[mask_ == 0] = np.nan

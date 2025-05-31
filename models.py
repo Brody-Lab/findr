@@ -5,7 +5,7 @@ from jax import lax, random, numpy as jnp
 import flax.linen as nn
 from flax.linen import initializers
 from typing import Any, Callable, Mapping, Optional, Sequence, Tuple, Union
-from mycells import MyGRUCell, GNSDECell, Constrained_GNSDECell, NTRGRUCell, PosteriorSDECell, Flow, Constrained_Flow
+from mycells import MyGRUCell, GNSDECell, PosteriorSDECell, Flow
 from utils import mask_sequences
 
 Array = Any
@@ -200,8 +200,7 @@ class SimpleGRU(nn.Module):
     init_fn=initializers.zeros_init()
   ):
     # Use a dummy key since the default state init fn is just zeros.
-    return nn.GRUCell.initialize_carry(
-        rng, (batch_size,), hidden_size, init_fn)
+    return jnp.zeros((batch_size, hidden_size))
 
 class SimpleBiGRU(nn.Module):
   """A simple bi-directional GRU."""
@@ -272,7 +271,6 @@ class FINDR(nn.Module):
   features_prior: Sequence[int]         # structure of the gnSDE network for the prior process
   features_posterior: Sequence[int]     # structure of the gnSDE network for the posterior process
   task_related_latent_size: int         # task related firing rate within a trial
-  non_task_related_gru_size: int        # RNN that generates non-task related latent
   inference_network_size: int           # RNN that feeds past and future spikes and external inputs into the posterior
   num_neurons: int
   alpha: float = 1.0
@@ -289,35 +287,15 @@ class FINDR(nn.Module):
       noise_level=self.noise_level
     )
 
-    if self.constrain_prior:
-      self.prior_process = Constrained_Flow(
-        features=self.features_prior,
-        alpha=self.alpha
-      )
-    else:
-      self.prior_process = Flow(
-        features=self.features_prior,
-        alpha=self.alpha
-      )
-    
-    if self.non_task_related_gru_size == 0:
-      self.non_task_related_gru = 0
-    else:
-      self.non_task_related_gru = NTRGRU()
+    self.prior_process = Flow(
+      features=self.features_prior,
+      alpha=self.alpha
+    )
 
     self.task_related_latents_to_neurons = nn.Dense(
       self.num_neurons,
       name='task_related_latents_to_neurons',
       use_bias=False
-    )
-
-    self.non_task_related_latents_to_neurons = nn.Dense(
-      self.num_neurons,
-      name='non_task_related_latents_to_neurons'
-    )
-    
-    self.gru_initial_state = InitialState(
-      num_latents=self.non_task_related_gru_size
     )
 
   def __call__(
@@ -331,7 +309,7 @@ class FINDR(nn.Module):
     key_1, key_2, key_3, key_4, key_5, = random.split(rng, 5)
     batch_size = len(trial_lengths)
     hs = self.inference_network(
-      spike_inputs, 
+      spike_inputs,#[:,:,:-13],#
       external_inputs,
       trial_lengths,
       key_1
@@ -359,20 +337,6 @@ class FINDR(nn.Module):
       z, 
       external_inputs
     )
-    if self.non_task_related_gru_size != 0:
-      carry_ndl = self.gru_initial_state() * self.non_task_related_gru.initialize_carry(
-        key_5, 
-        batch_size, 
-        self.non_task_related_gru_size
-      ) # non-task-related latent
-      _, b = self.non_task_related_gru(
-        carry_ndl,
-        external_inputs
-      )
-      logrates = self.task_related_latents_to_neurons(z) + \
-        self.non_task_related_latents_to_neurons(b) + baseline_inputs
-    else:
-      b = 0
-      logrates = self.task_related_latents_to_neurons(z) + baseline_inputs
+    logrates = self.task_related_latents_to_neurons(z) + baseline_inputs
 
-    return logrates, z, b, mu, mu_theta, mu_phi, std
+    return logrates, z, mu, mu_theta, mu_phi, std

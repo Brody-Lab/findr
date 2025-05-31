@@ -6,8 +6,8 @@ with open("requirements.txt") as file:
 
 setup(
     name="findr",
-    author="Tim Kim",
-    author_email="tdkim@princeton.edu",
+    author="Timothy Doyeon Kim",
+    author_email="timothy.doyeon.kim@gmail.com",
     description="Flow-field inference for neural data using deep recurrent networks (FINDR)",
     url="https://github.com/Brody-Lab/findr",
     install_requires=requirements,
