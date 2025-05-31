@@ -1,5 +1,13 @@
-# findr
-FINDR: Flow-field Inference from Neural Data using deep Recurrent networks
+<h1 align='center'>FINDR</h1>
+<h2 align='center'>Flow-field inference from neural data using deep recurrent networks</h2>
+
+Neurons work together in large groups to solve tasks — like deciding whether to buy a laptop or not based on online reviews. A central premise in neuroscience is that the brain's algorithm for doing such tasks can be succinctly represented as an equation describing how this group activity changes over time. 
+
+**FINDR** discovers what this equation is, using real brain activity data from animals doing specific tasks. The method does this in two main steps:
+
+1) It separates the brain activity that is relevant to the task from activity that isn't.
+
+2) It learns the most likely equation that is consistent with the task-relevant brain activity.
 
 # Installation
 Run the commands below to install FINDR:
