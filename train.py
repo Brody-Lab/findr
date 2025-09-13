@@ -46,7 +46,6 @@ def create_train_state(
     noise_level = config.noise_level,
     features_prior = config.features_prior,
     features_posterior = config.features_posterior,
-    non_task_related_gru_size = config.non_task_related_gru_size, 
     task_related_latent_size = config.task_related_latent_size,
     inference_network_size = config.inference_network_size,
     num_neurons = xs['spikes'].shape[-1],
@@ -492,21 +491,21 @@ def get_datasets(datapath, workdir, randseedpath=None, k_cv=1, n_splits=5, basel
 
   train_ds = {
     'spikes': data['spikes'][train_indices[k_cv-1],:,:],
-    'externalinputs': externalinputs[train_indices[k_cv-1],:,:], 
+    'externalinputs': data['externalinputs'][train_indices[k_cv-1],:,:], 
     'lengths':data['lengths'][train_indices[k_cv-1]], 
     'baselineinputs': baseline[train_indices[k_cv-1],:,:]
   }
   
   val_ds = {
     'spikes': data['spikes'][valid_indices[k_cv-1],:,:],
-    'externalinputs': externalinputs[valid_indices[k_cv-1],:,:], 
+    'externalinputs': data['externalinputs'][valid_indices[k_cv-1],:,:], 
     'lengths':data['lengths'][valid_indices[k_cv-1]], 
     'baselineinputs': baseline[valid_indices[k_cv-1],:,:]
   }
   
   test_ds = {
     'spikes': data['spikes'][test_indices[k_cv-1],:,:],
-    'externalinputs': externalinputs[test_indices[k_cv-1],:,:], 
+    'externalinputs': data['externalinputs'][test_indices[k_cv-1],:,:], 
     'lengths':data['lengths'][test_indices[k_cv-1]], 
     'baselineinputs': baseline[test_indices[k_cv-1],:,:]
   }
