@@ -27,7 +27,8 @@ def smooth(y):
   """Smooths a vector y with a causal gaussian filter."""
   h, w = causalgaussian(0.1)
   x = np.convolve(y, h, mode='full')
-  return np.array([w[t]*x[t] for t in range(len(y))])
+  # Vectorized multiplication instead of list comprehension
+  return w[:len(y)] * x[:len(y)]
 
 def radial_basis_functions(D, N, begins_at_0=False, ends_at_0=False):
   """
@@ -323,10 +324,19 @@ def infer_baseline(
 
 def generate_smoothed_spikes(spikes, lengths):
   """Smooths the spikes with a causal gaussian filter."""
-  smoothed_spikes = np.zeros_like(spikes).astype(np.float32)
-  for trial in range(smoothed_spikes.shape[0]):
-    for neuron in range(smoothed_spikes.shape[2]):
-      smoothed_spikes[trial, :lengths[trial], neuron] = smooth(spikes[trial, :lengths[trial], neuron])
+  # Pre-compute filter once
+  h, w = causalgaussian(0.1)
+  
+  smoothed_spikes = np.zeros_like(spikes, dtype=np.float32)
+  
+  for trial in range(spikes.shape[0]):
+      length = lengths[trial]
+      # Process all neurons at once for this trial
+      for neuron in range(spikes.shape[2]):
+          y = spikes[trial, :length, neuron]
+          x = np.convolve(y, h, mode='full')
+          smoothed_spikes[trial, :length, neuron] = w[:length] * x[:length]
+  
   return smoothed_spikes
 
 def generate_psths(spikes, lengths, pokedR):
