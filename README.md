@@ -51,7 +51,7 @@ There are example Jupyter notebooks under the `notebooks` folder. The `plot_exam
 
 # Citation
 
-Kim, T.D., Luo, T.Z., Can, T., Krishnamurthy, K., Pillow, J.W., Brody, C.D. (2025). Flow-field inference from neural data using deep recurrent networks. *Proceedings of the 42nd International Conference on Machine Learning (ICML)*.
+Kim, T.D., Luo, T.Z., Can, T., Krishnamurthy, K., Pillow, J.W., Brody, C.D. (2025). Flow-field inference from neural data using deep recurrent networks. [*Proceedings of the 42nd International Conference on Machine Learning (ICML)*](https://proceedings.mlr.press/v267/kim25z.html).
 
 ```bibtex
 @article{kim2025findr,
